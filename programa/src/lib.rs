@@ -128,6 +128,108 @@ pub mod registro {
 
         Ok(())
     }
+
+    // =====================================================================
+    // MEJORA PROPIA: CAJEROS AUTORIZADOS CON LIMITE POR VENTA
+    // =====================================================================
+    // El owner autoriza a OTRA wallet para registrar ventas, con un importe maximo
+    // por venta. El cajero no puede crear clientes, corregir importes ni devolver.
+
+    /////////////////////////// Autorizar Cajero ///////////////////////////
+    pub fn autorizar_cajero(
+        context: Context<NuevoCajero>,
+        cajero: Pubkey,
+        limite: u32,
+    ) -> Result<()> {
+        require!(limite > 0, Errores::LimiteInvalido);
+        require_keys_neq!(cajero, context.accounts.owner.key(), Errores::CajeroEsOwner);
+
+        context.accounts.permiso.set_inner(Cajero {
+            registro: context.accounts.registro.key(),
+            cajero,
+            limite,
+            ventas_registradas: 0,
+        });
+
+        msg!("Cajero {} autorizado con limite: {}", cajero, limite);
+
+        Ok(())
+    }
+
+    /////////////////////////// Cambiar Limite ///////////////////////////
+    pub fn cambiar_limite(
+        context: Context<ModificarCajero>,
+        _cajero: Pubkey,
+        nuevo_limite: u32,
+    ) -> Result<()> {
+        require!(nuevo_limite > 0, Errores::LimiteInvalido);
+
+        let permiso = &mut context.accounts.permiso;
+        let viejo_limite = permiso.limite;
+        permiso.limite = nuevo_limite;
+
+        msg!(
+            "Limite del cajero {}, paso de: {}, a: {}",
+            permiso.cajero,
+            viejo_limite,
+            nuevo_limite
+        );
+
+        Ok(())
+    }
+
+    /////////////////////////// Revocar Cajero ///////////////////////////
+    // "close = owner" cierra el permiso: sin cuenta no hay forma de vender.
+    pub fn revocar_cajero(_context: Context<EliminarCajero>, cajero: Pubkey) -> Result<()> {
+        msg!("Cajero {} revocado", cajero);
+
+        Ok(())
+    }
+
+    /////////////////////////// Venta por Cajero ///////////////////////////
+    // Firma y paga el cajero. La cuenta Venta es la misma que usa el owner, asi que
+    // cambiar_monto y hacer_devolucion (solo owner) funcionan sin cambios.
+    pub fn registrar_venta_cajero(
+        context: Context<NuevaVentaCajero>,
+        _id_cliente: u16,
+        sku: String,
+        descripcion: String,
+        monto: u32,
+    ) -> Result<()> {
+        require!(monto > 0, Errores::MontoInvalido);
+        require!(
+            monto <= context.accounts.permiso.limite,
+            Errores::LimiteExcedido
+        );
+        require!(
+            context.accounts.cliente.historial.len() < 10,
+            Errores::HistorialLleno
+        );
+
+        context.accounts.venta.set_inner(Venta {
+            sku: sku.clone(),
+            descripcion,
+            monto,
+        });
+
+        let venta_key = context.accounts.venta.key();
+
+        let cliente = &mut context.accounts.cliente;
+        cliente.historial.push(venta_key);
+        cliente.compras += 1;
+
+        let permiso = &mut context.accounts.permiso;
+        permiso.ventas_registradas = permiso.ventas_registradas.saturating_add(1);
+
+        msg!(
+            "Cajero {} registro la venta con sku: {}, por: {}",
+            permiso.cajero,
+            sku,
+            monto
+        );
+
+        Ok(())
+    }
 }
 
 /////////////////////////// Codigos de Error ///////////////////////////
@@ -137,6 +239,17 @@ pub enum Errores {
     NoOwner,
     #[msg("Error, la venta no esta en el historial del cliente")]
     NoSKU,
+    // Errores de la mejora: van al final para conservar los codigos anteriores
+    #[msg("Error, el limite debe ser mayor que cero")]
+    LimiteInvalido,
+    #[msg("Error, el owner no necesita autorizarse como cajero")]
+    CajeroEsOwner,
+    #[msg("Error, el monto debe ser mayor que cero")]
+    MontoInvalido,
+    #[msg("Error, el monto supera el limite autorizado al cajero")]
+    LimiteExcedido,
+    #[msg("Error, el cliente ya tiene 10 ventas activas")]
+    HistorialLleno,
 }
 
 /////////////////////////// CUENTAS ///////////////////////////
@@ -184,6 +297,21 @@ pub struct Venta {
     descripcion: String,
 
     monto: u32,
+}
+
+/////////////////////////// Cajero (mejora) ///////////////////////////
+// Una cuenta por permiso: no cambia el tamano ni los campos de Registro.
+
+#[account]
+#[derive(InitSpace, PartialEq)]
+pub struct Cajero {
+    registro: Pubkey,
+
+    cajero: Pubkey,
+
+    limite: u32, // Importe maximo por venta
+
+    ventas_registradas: u32,
 }
 
 /////////////////////////// CONTEXTOS ///////////////////////////
@@ -331,4 +459,104 @@ pub struct EliminarVenta<'info> {
         bump
     )]
     pub venta: Account<'info, Venta>,
+}
+
+// =========================================================================
+// MEJORA PROPIA: CONTEXTOS DE CAJEROS
+//     permiso <- [b"cajero", registro, wallet_del_cajero]
+// =========================================================================
+
+/// Instruccion: autorizar_cajero
+#[derive(Accounts)]
+#[instruction(cajero: Pubkey)]
+pub struct NuevoCajero<'info> {
+    #[account(mut)]
+    pub owner: Signer<'info>,
+
+    #[account(has_one = owner @ Errores::NoOwner)]
+    pub registro: Account<'info, Registro>,
+
+    #[account(
+        init,
+        payer = owner,
+        space = Cajero::INIT_SPACE + 8,
+        seeds = [b"cajero", registro.key().as_ref(), cajero.as_ref()],
+        bump
+    )]
+    pub permiso: Account<'info, Cajero>,
+
+    pub system_program: Program<'info, System>,
+}
+
+/// Instruccion: cambiar_limite
+#[derive(Accounts)]
+#[instruction(cajero: Pubkey)]
+pub struct ModificarCajero<'info> {
+    pub owner: Signer<'info>,
+
+    #[account(has_one = owner @ Errores::NoOwner)]
+    pub registro: Account<'info, Registro>,
+
+    #[account(
+        mut,
+        seeds = [b"cajero", registro.key().as_ref(), cajero.as_ref()],
+        bump
+    )]
+    pub permiso: Account<'info, Cajero>,
+}
+
+/// Instruccion: revocar_cajero -> cierra la cuenta
+#[derive(Accounts)]
+#[instruction(cajero: Pubkey)]
+pub struct EliminarCajero<'info> {
+    #[account(mut)]
+    pub owner: Signer<'info>, // mut: recibe el rent del permiso cerrado
+
+    #[account(has_one = owner @ Errores::NoOwner)]
+    pub registro: Account<'info, Registro>,
+
+    #[account(
+        mut,
+        close = owner,
+        seeds = [b"cajero", registro.key().as_ref(), cajero.as_ref()],
+        bump
+    )]
+    pub permiso: Account<'info, Cajero>,
+}
+
+/// Instruccion: registrar_venta_cajero
+#[derive(Accounts)]
+#[instruction(id_cliente: u16, sku: String)]
+pub struct NuevaVentaCajero<'info> {
+    #[account(mut)]
+    pub cajero: Signer<'info>,
+
+    pub registro: Account<'info, Registro>,
+
+    // La seed incluye la wallet FIRMANTE: nadie puede usar el permiso de otra persona
+    // ni un permiso emitido para otro negocio.
+    #[account(
+        mut,
+        seeds = [b"cajero", registro.key().as_ref(), cajero.key().as_ref()],
+        bump
+    )]
+    pub permiso: Account<'info, Cajero>,
+
+    #[account(
+        mut,
+        seeds = [b"cliente", registro.key().as_ref(), id_cliente.to_le_bytes().as_ref()],
+        bump
+    )]
+    pub cliente: Account<'info, Cliente>,
+
+    #[account(
+        init,
+        payer = cajero,
+        space = Venta::INIT_SPACE + 8,
+        seeds = [b"venta", cliente.key().as_ref(), sku.as_bytes()],
+        bump
+    )]
+    pub venta: Account<'info, Venta>,
+
+    pub system_program: Program<'info, System>,
 }

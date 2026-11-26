@@ -6,6 +6,7 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from "./cajero";
 export * from "./cliente";
 export * from "./registro";
 export * from "./venta";

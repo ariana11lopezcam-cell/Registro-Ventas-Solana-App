@@ -35,9 +35,12 @@ import {
   type SelfPlanAndSendFunctions,
 } from "@solana/program-client-core";
 import {
+  getCajeroCodec,
   getClienteCodec,
   getRegistroCodec,
   getVentaCodec,
+  type Cajero,
+  type CajeroArgs,
   type Cliente,
   type ClienteArgs,
   type Registro,
@@ -46,35 +49,52 @@ import {
   type VentaArgs,
 } from "../accounts";
 import {
+  getAutorizarCajeroInstruction,
+  getCambiarLimiteInstruction,
   getCambiarMontoInstruction,
   getCrearClienteInstruction,
   getCrearRegistroInstruction,
   getHacerDevolucionInstruction,
+  getRegistrarVentaCajeroInstruction,
   getRegistrarVentaInstruction,
+  getRevocarCajeroInstruction,
+  parseAutorizarCajeroInstruction,
+  parseCambiarLimiteInstruction,
   parseCambiarMontoInstruction,
   parseCrearClienteInstruction,
   parseCrearRegistroInstruction,
   parseHacerDevolucionInstruction,
+  parseRegistrarVentaCajeroInstruction,
   parseRegistrarVentaInstruction,
+  parseRevocarCajeroInstruction,
+  type AutorizarCajeroInput,
+  type CambiarLimiteInput,
   type CambiarMontoInput,
   type CrearClienteInput,
   type CrearRegistroInput,
   type HacerDevolucionInput,
+  type ParsedAutorizarCajeroInstruction,
+  type ParsedCambiarLimiteInstruction,
   type ParsedCambiarMontoInstruction,
   type ParsedCrearClienteInstruction,
   type ParsedCrearRegistroInstruction,
   type ParsedHacerDevolucionInstruction,
+  type ParsedRegistrarVentaCajeroInstruction,
   type ParsedRegistrarVentaInstruction,
+  type ParsedRevocarCajeroInstruction,
+  type RegistrarVentaCajeroInput,
   type RegistrarVentaInput,
+  type RevocarCajeroInput,
 } from "../instructions";
 
 export const REGISTRO_PROGRAM_ADDRESS =
-  "38oTMyvUTmqkBQeMiuok5F2mPjp9dVadWdBeQTDNmTUY" as Address<"38oTMyvUTmqkBQeMiuok5F2mPjp9dVadWdBeQTDNmTUY">;
+  "BNytJgPhua4QSg67HWgHSD3u5m2KPbxXPfkcChh6rW5q" as Address<"BNytJgPhua4QSg67HWgHSD3u5m2KPbxXPfkcChh6rW5q">;
 
 export enum RegistroAccount {
   Registro,
   Cliente,
   Venta,
+  Cajero,
 }
 
 export function identifyRegistroAccount(
@@ -114,6 +134,17 @@ export function identifyRegistroAccount(
   ) {
     return RegistroAccount.Venta;
   }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([47, 163, 219, 140, 124, 28, 13, 153]),
+      ),
+      0,
+    )
+  ) {
+    return RegistroAccount.Cajero;
+  }
   throw new SolanaError(
     SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_ACCOUNT,
     { accountData: data, programName: "registro" },
@@ -126,6 +157,10 @@ export enum RegistroInstruction {
   RegistrarVenta,
   HacerDevolucion,
   CambiarMonto,
+  AutorizarCajero,
+  CambiarLimite,
+  RevocarCajero,
+  RegistrarVentaCajero,
 }
 
 export function identifyRegistroInstruction(
@@ -187,6 +222,50 @@ export function identifyRegistroInstruction(
   ) {
     return RegistroInstruction.CambiarMonto;
   }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([164, 177, 145, 119, 251, 153, 50, 88]),
+      ),
+      0,
+    )
+  ) {
+    return RegistroInstruction.AutorizarCajero;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([145, 183, 126, 123, 234, 173, 108, 209]),
+      ),
+      0,
+    )
+  ) {
+    return RegistroInstruction.CambiarLimite;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([201, 79, 58, 12, 54, 117, 179, 28]),
+      ),
+      0,
+    )
+  ) {
+    return RegistroInstruction.RevocarCajero;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([222, 81, 136, 251, 128, 105, 111, 223]),
+      ),
+      0,
+    )
+  ) {
+    return RegistroInstruction.RegistrarVentaCajero;
+  }
   throw new SolanaError(
     SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION,
     { instructionData: data, programName: "registro" },
@@ -194,7 +273,7 @@ export function identifyRegistroInstruction(
 }
 
 export type ParsedRegistroInstruction<
-  TProgram extends string = "38oTMyvUTmqkBQeMiuok5F2mPjp9dVadWdBeQTDNmTUY",
+  TProgram extends string = "BNytJgPhua4QSg67HWgHSD3u5m2KPbxXPfkcChh6rW5q",
 > =
   | ({
       instructionType: RegistroInstruction.CrearRegistro;
@@ -210,7 +289,19 @@ export type ParsedRegistroInstruction<
     } & ParsedHacerDevolucionInstruction<TProgram>)
   | ({
       instructionType: RegistroInstruction.CambiarMonto;
-    } & ParsedCambiarMontoInstruction<TProgram>);
+    } & ParsedCambiarMontoInstruction<TProgram>)
+  | ({
+      instructionType: RegistroInstruction.AutorizarCajero;
+    } & ParsedAutorizarCajeroInstruction<TProgram>)
+  | ({
+      instructionType: RegistroInstruction.CambiarLimite;
+    } & ParsedCambiarLimiteInstruction<TProgram>)
+  | ({
+      instructionType: RegistroInstruction.RevocarCajero;
+    } & ParsedRevocarCajeroInstruction<TProgram>)
+  | ({
+      instructionType: RegistroInstruction.RegistrarVentaCajero;
+    } & ParsedRegistrarVentaCajeroInstruction<TProgram>);
 
 export function parseRegistroInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
@@ -252,6 +343,34 @@ export function parseRegistroInstruction<TProgram extends string>(
         ...parseCambiarMontoInstruction(instruction),
       };
     }
+    case RegistroInstruction.AutorizarCajero: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: RegistroInstruction.AutorizarCajero,
+        ...parseAutorizarCajeroInstruction(instruction),
+      };
+    }
+    case RegistroInstruction.CambiarLimite: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: RegistroInstruction.CambiarLimite,
+        ...parseCambiarLimiteInstruction(instruction),
+      };
+    }
+    case RegistroInstruction.RevocarCajero: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: RegistroInstruction.RevocarCajero,
+        ...parseRevocarCajeroInstruction(instruction),
+      };
+    }
+    case RegistroInstruction.RegistrarVentaCajero: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: RegistroInstruction.RegistrarVentaCajero,
+        ...parseRegistrarVentaCajeroInstruction(instruction),
+      };
+    }
     default:
       throw new SolanaError(
         SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE,
@@ -275,6 +394,8 @@ export type RegistroPluginAccounts = {
     SelfFetchFunctions<ClienteArgs, Cliente>;
   venta: ReturnType<typeof getVentaCodec> &
     SelfFetchFunctions<VentaArgs, Venta>;
+  cajero: ReturnType<typeof getCajeroCodec> &
+    SelfFetchFunctions<CajeroArgs, Cajero>;
 };
 
 export type RegistroPluginInstructions = {
@@ -301,6 +422,26 @@ export type RegistroPluginInstructions = {
     input: CambiarMontoInput,
     config?: { programAddress?: Address | HasAddress },
   ) => ReturnType<typeof getCambiarMontoInstruction> & SelfPlanAndSendFunctions;
+  autorizarCajero: (
+    input: AutorizarCajeroInput,
+    config?: { programAddress?: Address | HasAddress },
+  ) => ReturnType<typeof getAutorizarCajeroInstruction> &
+    SelfPlanAndSendFunctions;
+  cambiarLimite: (
+    input: CambiarLimiteInput,
+    config?: { programAddress?: Address | HasAddress },
+  ) => ReturnType<typeof getCambiarLimiteInstruction> &
+    SelfPlanAndSendFunctions;
+  revocarCajero: (
+    input: RevocarCajeroInput,
+    config?: { programAddress?: Address | HasAddress },
+  ) => ReturnType<typeof getRevocarCajeroInstruction> &
+    SelfPlanAndSendFunctions;
+  registrarVentaCajero: (
+    input: RegistrarVentaCajeroInput,
+    config?: { programAddress?: Address | HasAddress },
+  ) => ReturnType<typeof getRegistrarVentaCajeroInstruction> &
+    SelfPlanAndSendFunctions;
 };
 
 export type RegistroPluginRequirements = ClientWithRpc<
@@ -321,6 +462,7 @@ export function registroProgram(
           registro: addSelfFetchFunctions(client, getRegistroCodec()),
           cliente: addSelfFetchFunctions(client, getClienteCodec()),
           venta: addSelfFetchFunctions(client, getVentaCodec()),
+          cajero: addSelfFetchFunctions(client, getCajeroCodec()),
         },
         instructions: {
           crearRegistro: (input, instructionConfig) =>
@@ -359,6 +501,38 @@ export function registroProgram(
             addSelfPlanAndSendFunctions(
               client,
               getCambiarMontoInstruction(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              }),
+            ),
+          autorizarCajero: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getAutorizarCajeroInstruction(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              }),
+            ),
+          cambiarLimite: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getCambiarLimiteInstruction(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              }),
+            ),
+          revocarCajero: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getRevocarCajeroInstruction(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              }),
+            ),
+          registrarVentaCajero: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getRegistrarVentaCajeroInstruction(input, {
                 programAddress:
                   instructionConfig?.programAddress ?? config.programAddress,
               }),

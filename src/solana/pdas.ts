@@ -36,6 +36,11 @@ export function pdaVenta(cliente: Address, sku: string) {
   return derivar([s.texto("venta"), s.cuenta(cliente), s.texto(sku)]);
 }
 
+// Mejora. Rust: seeds = [b"cajero", registro.key().as_ref(), cajero.as_ref()]
+export function pdaCajero(registro: Address, cajero: Address) {
+  return derivar([s.texto("cajero"), s.cuenta(registro), s.cuenta(cajero)]);
+}
+
 /*
 Las tres instrucciones de venta necesitan las tres cuentas, porque el programa
 valida la cadena completa en el contexto. Derivarlas de una vez evita repetir

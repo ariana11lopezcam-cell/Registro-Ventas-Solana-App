@@ -1,3 +1,5 @@
+import { address, type Address } from '@solana/kit';
+
 export function texto(valor: string, etiqueta: string, maxBytes: number): string {
   const limpio = valor.trim();
   if (!limpio) throw new Error(etiqueta + ' es obligatorio.');
@@ -5,6 +7,11 @@ export function texto(valor: string, etiqueta: string, maxBytes: number): string
     throw new Error(etiqueta + ' admite hasta ' + maxBytes + ' bytes UTF-8.');
   }
   return limpio;
+}
+
+export function direccionValida(valor: string, etiqueta: string): Address {
+  try { return address(valor.trim()); }
+  catch { throw new Error(etiqueta + ' no es una dirección válida de Solana.'); }
 }
 
 export function entero(valor: number, etiqueta: string, maximo: number): number {

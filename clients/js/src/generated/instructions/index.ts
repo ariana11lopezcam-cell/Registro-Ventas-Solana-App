@@ -6,8 +6,12 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from "./autorizarCajero";
+export * from "./cambiarLimite";
 export * from "./cambiarMonto";
 export * from "./crearCliente";
 export * from "./crearRegistro";
 export * from "./hacerDevolucion";
 export * from "./registrarVenta";
+export * from "./registrarVentaCajero";
+export * from "./revocarCajero";

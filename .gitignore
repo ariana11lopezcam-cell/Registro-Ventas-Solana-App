@@ -9,3 +9,8 @@ dist/
 # idl.json y clients/ SI se versionan: permiten reproducir la entrega.
 # Nunca subas keypairs, frases de recuperacion ni archivos de wallets.
 *-keypair.json
+
+# Prueba local del programa
+pruebas-programa/src/
+pruebas-programa/target/
+tmp-idl/

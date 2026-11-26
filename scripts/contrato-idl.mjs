@@ -9,16 +9,24 @@ const requeridas = {
   registrarventa: ['idcliente', 'sku', 'descripcion', 'monto'],
   cambiarmonto: ['idcliente', 'sku', 'nuevomonto'],
   hacerdevolucion: ['idcliente', 'sku'],
+  // Mejora: cajeros autorizados
+  autorizarcajero: ['cajero', 'limite'],
+  cambiarlimite: ['cajero', 'nuevolimite'],
+  revocarcajero: ['cajero'],
+  registrarventacajero: ['idcliente', 'sku', 'descripcion', 'monto'],
 };
 const tiposArgumentos = {
   crearregistro: ['string'], crearcliente: ['string'],
   registrarventa: ['u16', 'string', 'string', 'u32'],
   cambiarmonto: ['u16', 'string', 'u32'], hacerdevolucion: ['u16', 'string'],
+  autorizarcajero: ['pubkey', 'u32'], cambiarlimite: ['pubkey', 'u32'], revocarcajero: ['pubkey'],
+  registrarventacajero: ['u16', 'string', 'string', 'u32'],
 };
 const camposEsperados = {
   registro: [['owner', 'pubkey'], ['nombrenegocio', 'string'], ['clientes', 'vec:pubkey'], ['idcounter', 'u16']],
   cliente: [['idcliente', 'u16'], ['nombre', 'string'], ['compras', 'u16'], ['historial', 'vec:pubkey']],
   venta: [['sku', 'string'], ['descripcion', 'string'], ['monto', 'u32']],
+  cajero: [['registro', 'pubkey'], ['cajero', 'pubkey'], ['limite', 'u32'], ['ventasregistradas', 'u32']],
 };
 const tipo = (valor) => typeof valor === 'string'
   ? (valor === 'publicKey' ? 'pubkey' : valor)
@@ -43,7 +51,7 @@ export function validarIdl(idl, programIdOpcional) {
       throw new Error('Los tipos de los argumentos de ' + nombre + ' no coinciden con el programa del bootcamp.');
     }
   }
-  for (const cuenta of ['registro', 'cliente', 'venta']) {
+  for (const cuenta of ['registro', 'cliente', 'venta', 'cajero']) {
     if (!idl.accounts?.some((item) => normalizar(item.name) === cuenta)) {
       throw new Error('Falta el tipo de cuenta ' + cuenta);
     }

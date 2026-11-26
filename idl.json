@@ -1,9 +1,6 @@
 {
   "version": "0.1.0",
   "name": "registro",
-  "metadata": {
-    "address": "38oTMyvUTmqkBQeMiuok5F2mPjp9dVadWdBeQTDNmTUY"
-  },
   "instructions": [
     {
       "name": "crearRegistro",
@@ -183,6 +180,150 @@
           "type": "u32"
         }
       ]
+    },
+    {
+      "name": "autorizarCajero",
+      "accounts": [
+        {
+          "name": "owner",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "registro",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "permiso",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "cajero",
+          "type": "publicKey"
+        },
+        {
+          "name": "limite",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "cambiarLimite",
+      "accounts": [
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "registro",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "permiso",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "cajero",
+          "type": "publicKey"
+        },
+        {
+          "name": "nuevoLimite",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "revocarCajero",
+      "accounts": [
+        {
+          "name": "owner",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "registro",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "permiso",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "cajero",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "registrarVentaCajero",
+      "accounts": [
+        {
+          "name": "cajero",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "registro",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "permiso",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "cliente",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "venta",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "idCliente",
+          "type": "u16"
+        },
+        {
+          "name": "sku",
+          "type": "string"
+        },
+        {
+          "name": "descripcion",
+          "type": "string"
+        },
+        {
+          "name": "monto",
+          "type": "u32"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -257,6 +398,30 @@
           }
         ]
       }
+    },
+    {
+      "name": "Cajero",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "registro",
+            "type": "publicKey"
+          },
+          {
+            "name": "cajero",
+            "type": "publicKey"
+          },
+          {
+            "name": "limite",
+            "type": "u32"
+          },
+          {
+            "name": "ventasRegistradas",
+            "type": "u32"
+          }
+        ]
+      }
     }
   ],
   "errors": [
@@ -269,6 +434,34 @@
       "code": 6001,
       "name": "NoSKU",
       "msg": "Error, la venta no esta en el historial del cliente"
+    },
+    {
+      "code": 6002,
+      "name": "LimiteInvalido",
+      "msg": "Error, el limite debe ser mayor que cero"
+    },
+    {
+      "code": 6003,
+      "name": "CajeroEsOwner",
+      "msg": "Error, el owner no necesita autorizarse como cajero"
+    },
+    {
+      "code": 6004,
+      "name": "MontoInvalido",
+      "msg": "Error, el monto debe ser mayor que cero"
+    },
+    {
+      "code": 6005,
+      "name": "LimiteExcedido",
+      "msg": "Error, el monto supera el limite autorizado al cajero"
+    },
+    {
+      "code": 6006,
+      "name": "HistorialLleno",
+      "msg": "Error, el cliente ya tiene 10 ventas activas"
     }
-  ]
+  ],
+  "metadata": {
+    "address": "BNytJgPhua4QSg67HWgHSD3u5m2KPbxXPfkcChh6rW5q"
+  }
 }

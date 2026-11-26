@@ -19,13 +19,34 @@ import { REGISTRO_PROGRAM_ADDRESS } from "../programs";
 export const REGISTRO_ERROR__NO_OWNER = 0x1770; // 6000
 /** NoSKU: Error, la venta no esta en el historial del cliente */
 export const REGISTRO_ERROR__NO_S_K_U = 0x1771; // 6001
+/** LimiteInvalido: Error, el limite debe ser mayor que cero */
+export const REGISTRO_ERROR__LIMITE_INVALIDO = 0x1772; // 6002
+/** CajeroEsOwner: Error, el owner no necesita autorizarse como cajero */
+export const REGISTRO_ERROR__CAJERO_ES_OWNER = 0x1773; // 6003
+/** MontoInvalido: Error, el monto debe ser mayor que cero */
+export const REGISTRO_ERROR__MONTO_INVALIDO = 0x1774; // 6004
+/** LimiteExcedido: Error, el monto supera el limite autorizado al cajero */
+export const REGISTRO_ERROR__LIMITE_EXCEDIDO = 0x1775; // 6005
+/** HistorialLleno: Error, el cliente ya tiene 10 ventas activas */
+export const REGISTRO_ERROR__HISTORIAL_LLENO = 0x1776; // 6006
 
 export type RegistroError =
-  typeof REGISTRO_ERROR__NO_OWNER | typeof REGISTRO_ERROR__NO_S_K_U;
+  | typeof REGISTRO_ERROR__CAJERO_ES_OWNER
+  | typeof REGISTRO_ERROR__HISTORIAL_LLENO
+  | typeof REGISTRO_ERROR__LIMITE_EXCEDIDO
+  | typeof REGISTRO_ERROR__LIMITE_INVALIDO
+  | typeof REGISTRO_ERROR__MONTO_INVALIDO
+  | typeof REGISTRO_ERROR__NO_OWNER
+  | typeof REGISTRO_ERROR__NO_S_K_U;
 
 let registroErrorMessages: Record<RegistroError, string> | undefined;
 if (process.env["NODE_ENV"] !== "production") {
   registroErrorMessages = {
+    [REGISTRO_ERROR__CAJERO_ES_OWNER]: `Error, el owner no necesita autorizarse como cajero`,
+    [REGISTRO_ERROR__HISTORIAL_LLENO]: `Error, el cliente ya tiene 10 ventas activas`,
+    [REGISTRO_ERROR__LIMITE_EXCEDIDO]: `Error, el monto supera el limite autorizado al cajero`,
+    [REGISTRO_ERROR__LIMITE_INVALIDO]: `Error, el limite debe ser mayor que cero`,
+    [REGISTRO_ERROR__MONTO_INVALIDO]: `Error, el monto debe ser mayor que cero`,
     [REGISTRO_ERROR__NO_OWNER]: `Error, no eres el owner del registro`,
     [REGISTRO_ERROR__NO_S_K_U]: `Error, la venta no esta en el historial del cliente`,
   };

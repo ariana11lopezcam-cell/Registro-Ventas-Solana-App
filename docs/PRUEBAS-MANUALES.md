@@ -39,3 +39,7 @@ El bloqueo visual de otra autoridad no demuestra por sí mismo el control onchai
 Guarda código/revisión utilizados, Program ID, direcciones públicas de las cuentas, firmas cuando existan, resultado esperado y resultado observado. Para rechazos de preflight pueden servir los logs y la explicación de la restricción que los causó.
 
 No incluyas claves privadas, frases de recuperación ni datos personales reales de clientes.
+
+## Mejora: cajeros
+
+Consulta el recorrido con dos wallets en [GUIA-PASO-A-PASO.md](./GUIA-PASO-A-PASO.md).
